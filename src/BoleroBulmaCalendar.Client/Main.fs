@@ -7,6 +7,7 @@ open Bolero.Html
 open Bolero.Remoting
 open Bolero.Remoting.Client
 open Bolero.Templating.Client
+open Microsoft.JSInterop
 
 /// Routing endpoints definition.
 type Page =
@@ -23,6 +24,7 @@ type Model =
         error: string option
         username: string
         password: string
+        date: DateTime
         signedInAs: option<string>
         signInFailed: bool
     }
@@ -33,18 +35,6 @@ and Book =
         author: string
         publishDate: DateTime
         isbn: string
-    }
-
-let initModel =
-    {
-        page = Home
-        counter = 0
-        books = None
-        error = None
-        username = ""
-        password = ""
-        signedInAs = None
-        signInFailed = false
     }
 
 /// Remote service definition.
@@ -74,6 +64,8 @@ type BookService =
 
 /// The Elmish application's update messages.
 type Message =
+    | Initialize
+    | DateSelected of DateTime
     | SetPage of Page
     | Increment
     | Decrement
@@ -91,11 +83,49 @@ type Message =
     | Error of exn
     | ClearError
 
-let update remote message model =
+type Callback =
+    static member OfDateTime(f) =
+        DotNetObjectReference.Create(DateTimeCallback(f))
+
+and DateTimeCallback(f: DateTime -> unit) =
+    [<JSInvokable>]
+    member this.Invoke(arg1) =
+        f (DateTime.Parse(arg1))
+
+let initModel =
+    let initState = {
+        page = Home
+        counter = 0
+        books = None
+        error = None
+        username = ""
+        password = ""
+        date = DateTime(0L)
+        signedInAs = None
+        signInFailed = false
+    }
+    let initCmd = Cmd.batch [
+         Cmd.ofMsg Initialize;
+         Cmd.ofMsg GetSignedInAs;
+    ]
+    initState, initCmd
+
+let update (jsRuntime:IJSRuntime) remote message model =
     let onSignIn = function
         | Some _ -> Cmd.ofMsg GetBooks
         | None -> Cmd.none
+    let setupJSCallback = 
+        Cmd.ofSub (fun dispatch -> 
+            // given a size, dispatch a message
+            let onSelected = dispatch << DateSelected
+            jsRuntime.InvokeVoidAsync("generalFunctions.initBulmaCalendar", Callback.OfDateTime onSelected).AsTask() |> ignore
+        )
+
     match message with
+    | Initialize ->
+        model, setupJSCallback
+    | DateSelected date -> 
+        { model with date = date}, Cmd.none
     | SetPage page ->
         { model with page = page }, Cmd.none
 
@@ -141,8 +171,10 @@ let router = Router.infer SetPage (fun model -> model.page)
 
 type Main = Template<"wwwroot/main.html">
 
-let homePage model dispatch =
-    Main.Home().Elt()
+let homePage (model:Model) dispatch =
+    Main.Home()
+        .Date(model.date.ToString("dd/MM/yyyy"))
+        .Elt()
 
 let counterPage model dispatch =
     Main.Counter()
@@ -224,8 +256,9 @@ type MyApp() =
 
     override this.Program =
         let bookService = this.Remote<BookService>()
-        let update = update bookService
-        Program.mkProgram (fun _ -> initModel, Cmd.ofMsg GetSignedInAs) update view
+        let jsRuntime = this.JSRuntime
+        let update = update jsRuntime bookService
+        Program.mkProgram (fun _ -> initModel) update view
         |> Program.withRouter router
 #if DEBUG
         |> Program.withHotReload

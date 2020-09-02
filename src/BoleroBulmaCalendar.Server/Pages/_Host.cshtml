@@ -10,6 +10,9 @@
     <base href="/">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.4/css/bulma.min.css">
     <link rel="stylesheet" href="css/index.css">
+    <link rel="stylesheet" href="css/bulma.min.css">
+    <link rel="stylesheet" href="css/bulma-calendar.min.css">
+    <script src="/js/bulma-calendar.min.js"></script>    
   </head>
   <body>
     <nav class="navbar is-dark" role="navigation" aria-label="main navigation">
@@ -22,6 +25,39 @@
       </div>
     </nav>
     <div id="main">@(await Html.RenderComponentAsync<BoleroBulmaCalendar.Client.Main.MyApp>(BoleroHostConfig))</div>
-    @Html.RenderBoleroScript(BoleroHostConfig)
+    @Html.RenderBoleroScript(BoleroHostConfig)    
   </body>
+  <script type="text/javascript">
+      window.generalFunctions = {
+        initBulmaCalendar: function(callback) {
+          const options = {
+            color: 'primary',
+            isRange: false,
+            allowSameDayRange: true,
+            lang: 'en', // internationalization
+            startDate: undefined,
+            endDate: undefined,
+            minDate: null,
+            maxDate: null,
+            disabledDates: [],
+            disabledWeekDays: undefined,
+            weekStart: 0,
+            dateFormat: 'MM/DD/YYYY',
+            enableMonthSwitch: true,
+            enableYearSwitch: true
+          };
+          var calendars = bulmaCalendar.attach('[type="date"]', options);
+
+          // To access to bulmaCalendar instance of an element
+          var element = document.querySelector('#bulma-calendar');
+          if (element) {
+            // bulmaCalendar instance is available as element.bulmaCalendar
+            element.bulmaCalendar.on('select', function(datepicker) {
+              callback.invokeMethodAsync('Invoke', datepicker.data.value());
+              //console.log(datepicker.data.value());
+            });
+          }
+        }
+      }
+    </script>
 </html>
