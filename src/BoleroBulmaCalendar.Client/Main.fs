@@ -1,6 +1,7 @@
 module BoleroBulmaCalendar.Client.Main
 
 open System
+open System.Globalization
 open Elmish
 open Bolero
 open Bolero.Html
@@ -106,7 +107,6 @@ let initModel =
     }
     let initCmd = Cmd.batch [
          Cmd.ofMsg Initialize;
-         Cmd.ofMsg GetSignedInAs;
     ]
     initState, initCmd
 
@@ -118,7 +118,8 @@ let update (jsRuntime:IJSRuntime) remote message model =
         Cmd.ofSub (fun dispatch -> 
             // given a size, dispatch a message
             let onSelected = dispatch << DateSelected
-            jsRuntime.InvokeVoidAsync("generalFunctions.initBulmaCalendar", Callback.OfDateTime onSelected).AsTask() |> ignore
+            let dateFormat = CultureInfo.CurrentCulture.DateTimeFormat.ShortDatePattern.ToUpper()
+            jsRuntime.InvokeVoidAsync("generalFunctions.initBulmaCalendar", dateFormat, Callback.OfDateTime onSelected).AsTask() |> ignore
         )
 
     match message with
@@ -172,8 +173,9 @@ let router = Router.infer SetPage (fun model -> model.page)
 type Main = Template<"wwwroot/main.html">
 
 let homePage (model:Model) dispatch =
+    let format = CultureInfo.CurrentCulture.DateTimeFormat.ShortDatePattern
     Main.Home()
-        .Date(model.date.ToString("dd/MM/yyyy"))
+        .Date(model.date.ToString(format))
         .Elt()
 
 let counterPage model dispatch =

@@ -29,7 +29,10 @@
   </body>
   <script type="text/javascript">
       window.generalFunctions = {
-        initBulmaCalendar: function(callback) {
+        onSelectCallback: function(callback, date) {
+          callback.invokeMethodAsync('Invoke', date.data.value());
+        },
+        initBulmaCalendar: function(format, callback) {
           const options = {
             color: 'primary',
             isRange: false,
@@ -42,19 +45,16 @@
             disabledDates: [],
             disabledWeekDays: undefined,
             weekStart: 0,
-            dateFormat: 'MM/DD/YYYY',
+            dateFormat: format,
             enableMonthSwitch: true,
             enableYearSwitch: true
           };
           var calendars = bulmaCalendar.attach('[type="date"]', options);
 
-          // To access to bulmaCalendar instance of an element
-          var element = document.querySelector('#bulma-calendar');
-          if (element) {
-            // bulmaCalendar instance is available as element.bulmaCalendar
-            element.bulmaCalendar.on('select', function(datepicker) {
-              callback.invokeMethodAsync('Invoke', datepicker.data.value());
-              //console.log(datepicker.data.value());
+          for(var i = 0; i < calendars.length; i++) {
+            // Add listener to date:selected event
+            calendars[i].on('select', date => {
+              this.onSelectCallback(callback, date);
             });
           }
         }
